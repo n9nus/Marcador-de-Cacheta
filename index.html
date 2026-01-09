@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Marcador de Cacheta - Pro</title>
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --accent: #1976d2;
+            --marra: #d32f2f;
+            --h-win: #c8e6c9; 
+            --h-loss: #ffcdd2; 
+            --h-run: #bbdefb;
+            --h-sit: #fff9c4; 
+        }
+
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg); margin: 0; display: flex; justify-content: center; padding: 10px; }
+        .container { width: 100%; max-width: 600px; background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: var(--primary); margin: 10px 0; }
+        .hidden { display: none !important; }
+
+        .flex-row { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        input, select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; min-width: 60px; }
+        
+        .btn { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; padding: 12px; }
+        .btn-add { background: var(--primary); }
+        .btn-start { background: var(--accent); width: 100%; font-size: 1.1rem; }
+        .btn-undo { background: #f39c12; width: 100%; margin-top: 5px; font-size: 0.9rem; }
+        .btn-finish { background: #555; width: 100%; margin-top: 10px; font-size: 0.8rem; opacity: 0.7; }
+
+        .simple-list { list-style: none; padding: 0; margin: 0; }
+        .simple-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; font-size: 1.1rem; background: white; }
+        .marra-item { color: var(--marra); }
+        
+        .is-dealer { font-weight: bold !important; text-decoration: none !important; }
+
+        .player-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; }
+        .status-controls { display: flex; gap: 8px; }
+        .chip { padding: 8px 12px; border-radius: 20px; font-size: 0.75rem; border: 1px solid #ccc; background: #fff; color: #666; }
+        .chip.locked { background: #ffebee; border-color: var(--marra); color: var(--marra); font-weight: bold; cursor: default; }
+        .chip.active-in { background: #e3f2fd; border-color: #2196f3; color: #1565c0; font-weight: bold; }
+        .chip.active-win { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; font-weight: bold; }
+        .chip.sitting { background: var(--h-sit); border-color: #fbc02d; color: #5f4b00; font-weight: bold; cursor: default; }
+
+        .filters { display: flex; justify-content: center; gap: 5px; margin: 15px 0; flex-wrap: wrap; }
+        .btn-filter { padding: 6px 10px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 4px; background: #eee; cursor: pointer; }
+        .btn-filter.active { background: var(--primary); color: white; }
+        
+        .table-container { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 300px; }
+        th, td { padding: 8px; text-align: center; border: 1px solid #eee; font-size: 0.85rem; font-weight: normal; }
+        .bg-win { background-color: var(--h-win) !important; }
+        .bg-loss { background-color: var(--h-loss) !important; }
+        .bg-run { background-color: var(--h-run) !important; }
+        .bg-sit { background-color: var(--h-sit) !important; }
+        .bg-reentry { background-color: var(--h-run) !important; font-weight: bold !important; } 
+        
+        .eliminated-row { opacity: 0.45; filter: grayscale(50%); }
+        .clickable-name { cursor: pointer; text-decoration: none !important; }
+        .marra-text { color: var(--marra) !important; }
+
+        .circle-wrapper { position: relative; width: 300px; height: 300px; margin: 30px auto; display: none; }
+        .circle-area { position: absolute; width: 100%; height: 100%; border: 1px dashed #ccc; border-radius: 50%; }
+        .player-node { 
+            position: absolute; width: 55px; height: 55px; background: var(--primary); color: white; border-radius: 50%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translate(-50%, -50%); 
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15); font-weight: normal; border: 2px solid transparent; transition: all 0.3s ease;
+        }
+        .player-node span { font-size: 0.65rem; text-transform: uppercase; }
+        .node-marra { background: var(--marra) !important; }
+        .node-dealer { border: 4px solid #ffd700 !important; font-weight: bold !important; }
+
+        .pot-display { background: var(--primary); color: white; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; font-weight: bold; font-size: 1.1rem; }
+        .config-box { background: #fdfdfd; padding: 12px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="setupScreen">
+        <h1>🃏 Marcador Cacheta</h1>
+        <div class="flex-row">
+            <input type="text" id="playerName" placeholder="Nome do jogador">
+            <button class="btn btn-add" onclick="addPlayer()">Adicionar</button>
+        </div>
+        <div class="config-box">
+            <label><input type="checkbox" id="hostJoga"> Host Joga? (Não paga 1ª)</label>
+            <label><input type="checkbox" id="isDobrado"> Dobrado? (Fichas x2)</label>
+        </div>
+        <div id="setupList" class="simple-list"></div>
+        <button id="startBtn" class="btn btn-start hidden" onclick="initGame()" style="margin-top: 20px;">Iniciar Partida</button>
+    </div>
+
+    <div id="gameScreen" class="hidden">
+        <div class="pot-display" id="potBanner">Fichas no Pote: 0</div>
+        
+        <div id="dealerAlert" class="hidden" style="background: #fff3e0; border: 1px solid #ffb74d; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+            <p style="margin:0 0 8px 0; font-weight: bold; color: #e65100;">Quem dá as cartas agora?</p>
+            <select id="dealerSelect" onchange="setDealerManual(this.value)"></select>
+        </div>
+
+        <h2 id="roundTitle">Rodada 1</h2>
+        <div id="roundControls"></div>
+        <button class="btn btn-start" onclick="processRound()" style="margin-top:15px; background: var(--primary);">Finalizar Rodada</button>
+        <button id="undoBtn" class="btn btn-undo hidden" onclick="undoRound()">↩ Voltar Rodada Anterior</button>
+        <button class="btn btn-finish" onclick="endGameManual()">Encerrar Jogo</button>
+        
+        <div style="background: #f1f1f1; padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <h4 style="margin:0 0 8px 0; font-size: 0.8rem;">Adicionar/Voltar Participante</h4>
+            <div class="flex-row">
+                <input type="text" id="midName" placeholder="Nome">
+                <input type="number" id="midPts" value="10" style="max-width:35px">
+                <input type="number" id="midPos" placeholder="Pos" style="max-width:35px">
+                <button class="btn btn-add" onclick="addPlayerMidGame()" style="padding: 5px 10px;">+</button>
+            </div>
+        </div>
+
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        
+        <h2>Placar</h2>
+        <div class="filters">
+            <button class="btn-filter active" onclick="updateView('points')">Pontos</button>
+            <button class="btn-filter" onclick="updateView('original')">Cadastro</button>
+            <button class="btn-filter" onclick="updateView('circular')">Circular</button>
+            <button class="btn-filter" onclick="updateView('history')">Histórico</button>
+        </div>
+
+        <div id="displayArea">
+            <div id="simpleListView" class="simple-list"></div>
+            <div id="historyView" class="hidden">
+                <div class="table-container">
+                    <table>
+                        <thead id="histHeader"></thead>
+                        <tbody id="histBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="circleContainer" class="circle-wrapper"><div class="circle-area"></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let players = []; 
+    let historyOrder = []; 
+    let historyData = {}; 
+    let roundNumber = 1;
+    let currentView = 'points';
+    let gameStates = [];
+    let totalPot = 0;
+    let config = { hostJoga: false, isDobrado: false };
+
+    let car = "";
+    let mao = "";
+    let maoant = "";
+
+    function saveState() {
+        gameStates.push(JSON.stringify({
+            players: JSON.parse(JSON.stringify(players)),
+            historyOrder: [...historyOrder],
+            historyData: JSON.parse(JSON.stringify(historyData)),
+            roundNumber: roundNumber,
+            totalPot: totalPot,
+            car: car,
+            mao: mao,
+            maoant: maoant
+        }));
+        document.getElementById('undoBtn').classList.remove('hidden');
+    }
+
+    function undoRound() {
+        if (gameStates.length === 0) return;
+        const lastState = JSON.parse(gameStates.pop());
+        players = lastState.players;
+        historyOrder = lastState.historyOrder;
+        historyData = lastState.historyData;
+        roundNumber = lastState.roundNumber;
+        totalPot = lastState.totalPot;
+        car = lastState.car;
+        mao = lastState.mao;
+        maoant = lastState.maoant;
+        if (gameStates.length === 0) document.getElementById('undoBtn').classList.add('hidden');
+        updatePotUI(); renderRound(); updateView(currentView);
+    }
+
+    function addPlayer() {
+        const input = document.getElementById('playerName');
+        const name = input.value.trim();
+        if (name && players.length < 12) {
+            players.push({ name: name, points: 10 });
+            input.value = ""; renderSetup();
+        }
+    }
+
+    function renderSetup() {
+        const list = document.getElementById('setupList');
+        list.innerHTML = players.map((p, i) => `
+            <div class="simple-item">
+                <span>${p.name}</span>
+                <button onclick="players.splice(${i},1); renderSetup();" style="color:red; background:none; border:none; cursor:pointer;">Remover</button>
+            </div>
+        `).join('');
+        document.getElementById('startBtn').classList.toggle('hidden', players.length < 5);
+    }
+
+    function initGame() {
+        config.hostJoga = document.getElementById('hostJoga').checked;
+        config.isDobrado = document.getElementById('isDobrado').checked;
+        let multiplier = config.isDobrado ? 2 : 1;
+        totalPot = players.length * multiplier;
+        if (config.hostJoga) totalPot -= (1 * multiplier);
+
+        car = players[0].name;
+        mao = players[1].name;
+        maoant = mao;
+
+        players.forEach((p) => {
+            historyData[p.name] = [];
+            historyOrder.push(p.name);
+        });
+        document.getElementById('setupScreen').classList.add('hidden');
+        document.getElementById('gameScreen').classList.remove('hidden');
+        updatePotUI(); renderRound(); updateView('points');
+    }
+
+    function updatePotUI() { document.getElementById('potBanner').innerText = `Fichas no Pote: ${totalPot}`; }
+
+    function triggerReentry(name) {
+        if (players.find(p => p.name === name)) return; 
+        
+        let baseName = name.replace(/\s\(\+\d+\)$/, "");
+        if (confirm(`Deseja que "${baseName}" volte para o jogo?`)) {
+            document.getElementById('midName').value = baseName;
+            let minPts = Math.min(...players.map(p => p.points));
+            document.getElementById('midPts').value = minPts;
+            addPlayerMidGame();
+        }
+    }
+
+    function addPlayerMidGame() {
+        saveState();
+        const inputName = document.getElementById('midName').value.trim();
+        const pts = parseInt(document.getElementById('midPts').value);
+        let manualPos = parseInt(document.getElementById('midPos').value);
+        if (!inputName || isNaN(pts)) return;
+
+        let multiplier = config.isDobrado ? 2 : 1;
+        let finalName = inputName;
+        const keys = Object.keys(historyData);
+        const pattern = new RegExp(`^${inputName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(\\+\\d+\\))?$`);
+        const matched = keys.filter(k => pattern.test(k));
+
+        if (matched.length > 0) {
+            let existingKey = matched.sort().reverse()[0];
+            let nextNum = 1;
+            const match = existingKey.match(/\(\+(\d+)\)/);
+            if (match) nextNum = parseInt(match[1]) + 1;
+            finalName = inputName + ` (+${nextNum})`;
+            totalPot += (Math.pow(2, nextNum - 1) * multiplier);
+            
+            let dataCopy = [...historyData[existingKey]];
+            if (dataCopy.length > 0) {
+                let lastIdx = dataCopy.length - 1;
+                dataCopy[lastIdx] = { pts: pts, status: "re-entry" };
+            }
+            historyData[finalName] = dataCopy;
+            delete historyData[existingKey];
+            historyOrder = historyOrder.map(n => n === existingKey ? finalName : n);
+        } else {
+            totalPot += (1 * multiplier);
+            historyData[finalName] = new Array(roundNumber - 1).fill({pts: pts, status: "run"});
+            if (!isNaN(manualPos) && manualPos > 0 && manualPos <= historyOrder.length + 1) {
+                historyOrder.splice(manualPos - 1, 0, finalName);
+            } else {
+                historyOrder.push(finalName);
+            }
+        }
+
+        players.push({ name: finalName, points: pts });
+        players.sort((a, b) => historyOrder.indexOf(a.name) - historyOrder.indexOf(b.name));
+
+        updatePotUI();
+        document.getElementById('midName').value = "";
+        document.getElementById('midPos').value = "";
+        showDealerSelection();
+        updateView(currentView);
+    }
+
+    function showDealerSelection() {
+        const div = document.getElementById('dealerAlert');
+        const select = document.getElementById('dealerSelect');
+        div.classList.remove('hidden');
+        select.innerHTML = `<option value="">Selecione...</option>` + 
+            players.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    }
+
+    function setDealerManual(name) {
+        if (!name) return;
+        car = name;
+        let idx = players.findIndex(p => p.name === car);
+        mao = players[(idx + 1) % players.length].name;
+        maoant = mao;
+        document.getElementById('dealerAlert').classList.add('hidden');
+        renderRound(); updateView(currentView);
+    }
+
+    function renderRound() {
+        document.getElementById('roundTitle').innerText = `Rodada ${roundNumber}`;
+        const container = document.getElementById('roundControls');
+        let sittingIdx = (players.length === 12) ? (roundNumber - 1) % 12 : -1;
+
+        container.innerHTML = players.map((p, i) => {
+            const isMarra = p.points === 1;
+            const isCar = (p.name === car);
+            if (i === sittingIdx) {
+                return `<div class="player-row"><strong class="${isCar?'is-dealer':''}" style="font-weight:${isCar?'bold':'normal'}">${p.name}</strong><div class="status-controls"><span class="chip sitting">PONTO</span></div></div>`;
+            }
+            return `<div class="player-row">
+                <strong class="${isMarra?'marra-text':''} ${isCar?'is-dealer':''}" style="font-weight:${isCar?'bold':'normal'}">${p.name}</strong>
+                <div class="status-controls">
+                    <button class="chip ${isMarra ? 'locked active-in' : ''}" id="in-${i}" onclick="${isMarra ? '' : 'toggleIn(' + i + ')'}">${isMarra ? 'Marra' : 'Jogou'}</button>
+                    <button class="chip ${isMarra ? '' : 'hidden'}" id="win-${i}" onclick="toggleWin(${i})">Bateu</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleIn(idx) {
+        const btn = document.getElementById(`in-${idx}`);
+        const win = document.getElementById(`win-${idx}`);
+        btn.classList.toggle('active-in');
+        win.classList.toggle('hidden', !btn.classList.contains('active-in'));
+    }
+
+    function toggleWin(idx) { document.getElementById(`win-${idx}`).classList.toggle('active-win'); }
+
+    function processRound() {
+        let anyoneWon = false;
+        let sittingIdx = (players.length === 12) ? (roundNumber - 1) % 12 : -1;
+        players.forEach((_, i) => { if (i !== sittingIdx && document.getElementById(`win-${i}`).classList.contains('active-win')) anyoneWon = true; });
+        if (!anyoneWon) { alert("Alguém precisa bater!"); return; }
+
+        saveState();
+        players.forEach((p, i) => {
+            if (i === sittingIdx) { historyData[p.name].push({pts: p.points, status: "sit"}); return; }
+            if (historyData[p.name].length < roundNumber) {
+                const played = document.getElementById(`in-${i}`).classList.contains('active-in');
+                const won = document.getElementById(`win-${i}`).classList.contains('active-win');
+                let status = won ? "win" : (played ? "loss" : "run");
+                if (!won) p.points -= (played ? 2 : 1);
+                historyData[p.name].push({pts: p.points <= 0 ? "X" : p.points, status: status});
+            } else {
+                const won = document.getElementById(`win-${i}`).classList.contains('active-win');
+                if (!won) {
+                    const played = document.getElementById(`in-${i}`).classList.contains('active-in');
+                    p.points -= (played ? 2 : 1);
+                    historyData[p.name][roundNumber-1].pts = p.points <= 0 ? "X" : p.points;
+                }
+            }
+        });
+
+        Object.keys(historyData).forEach(name => { if (historyData[name].length < roundNumber) historyData[name].push({pts: "X", status: ""}); });
+        players = players.filter(p => p.points > 0);
+        if (players.length <= 1) { endGameManual(); return; }
+
+        maoant = mao;
+        let maoGlobalIdx = historyOrder.indexOf(mao);
+        let nextMaoName = "";
+        for(let i=1; i <= historyOrder.length; i++) {
+            let idx = (maoGlobalIdx + i) % historyOrder.length;
+            if(players.find(p => p.name === historyOrder[idx])) { nextMaoName = historyOrder[idx]; break; }
+        }
+        mao = nextMaoName;
+        let currentMaoIdxInPlayers = players.findIndex(p => p.name === mao);
+        car = players[(currentMaoIdxInPlayers - 1 + players.length) % players.length].name;
+
+        roundNumber++; renderRound(); updateView(currentView); window.scrollTo(0,0);
+    }
+
+    function updateView(view) {
+        currentView = view;
+        const listDiv = document.getElementById('simpleListView');
+        const histDiv = document.getElementById('historyView');
+        const circleDiv = document.getElementById('circleContainer');
+        document.querySelectorAll('.btn-filter').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(view)));
+
+        listDiv.classList.add('hidden'); histDiv.classList.add('hidden'); circleDiv.style.display = 'none';
+
+        if (view === 'points' || view === 'original') {
+            listDiv.classList.remove('hidden');
+            let list = [...players];
+            if (view === 'original') list.sort((a, b) => historyOrder.indexOf(a.name) - historyOrder.indexOf(b.name));
+            else if (view === 'points') list.sort((a,b) => b.points - a.points);
+            
+            listDiv.innerHTML = list.map(p => `
+                <div class="simple-item ${p.points === 1 ? 'marra-item' : ''}">
+                    <span class="${p.name === car ? 'is-dealer' : ''}">${p.name}</span>
+                    <strong>${p.points}</strong>
+                </div>`).join('');
+        } else if (view === 'history') {
+            histDiv.classList.remove('hidden'); renderHistoryTable();
+        } else if (view === 'circular') {
+            circleDiv.style.display = 'block'; renderCircular();
+        }
+    }
+
+    function renderHistoryTable() {
+        const head = document.getElementById('histHeader');
+        const body = document.getElementById('histBody');
+        let headHtml = `<tr><th>JOGADOR</th>`;
+        for(let i=1; i<roundNumber; i++) headHtml += `<th>R${i}</th>`;
+        head.innerHTML = headHtml + `</tr>`;
+
+        body.innerHTML = historyOrder.map(name => {
+            const activePlayer = players.find(p => p.name === name);
+            const isMarra = activePlayer && activePlayer.points === 1;
+            const isCar = (name === car);
+            
+            let row = `<td><strong onclick="triggerReentry('${name}')" class="${isMarra?'marra-text':''} ${isCar?'is-dealer':''} ${!activePlayer?'clickable-name':''}" style="font-weight:${isCar?'bold':'normal'}">${name}</strong></td>`;
+            
+            historyData[name].forEach(item => {
+                let colorClass = "";
+                if (item.status === 're-entry') colorClass = "bg-reentry";
+                else if (item.status === 'win') colorClass = "bg-win";
+                else if (item.status === 'loss') colorClass = "bg-loss";
+                else if (item.status === 'run') colorClass = "bg-run";
+                else if (item.status === 'sit') colorClass = "bg-sit";
+                row += `<td class="${colorClass}">${item.pts}</td>`;
+            });
+            return `<tr class="${activePlayer ? '' : 'eliminated-row'}">${row}</tr>`;
+        }).join('');
+    }
+
+    function renderCircular() {
+        const wrapper = document.getElementById('circleContainer');
+        wrapper.querySelectorAll('.player-node').forEach(n => n.remove());
+        players.forEach((p, i) => {
+            const angle = (i * (2 * Math.PI / players.length)) * -1;
+            const x = 150 + 120 * Math.cos(angle);
+            const y = 150 + 120 * Math.sin(angle);
+            const node = document.createElement('div');
+            node.className = 'player-node';
+            if (p.points === 1) node.classList.add('node-marra');
+            if (p.name === car) node.classList.add('node-dealer');
+            node.style.left = `${x}px`; node.style.top = `${y}px`;
+            node.innerHTML = `<span>${p.name.substring(0,3)}</span><b>${p.points}</b>`;
+            wrapper.appendChild(node);
+        });
+    }
+
+    function endGameManual() {
+        if(confirm("Encerrar partida?")) { location.reload(); }
+    }
+    document.getElementById('playerName').addEventListener('keypress', e => { if(e.key === 'Enter') addPlayer(); });
+</script>
+</body>
+</html>
